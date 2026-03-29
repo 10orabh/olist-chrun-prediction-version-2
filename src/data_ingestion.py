@@ -4,6 +4,9 @@ from sqlalchemy import create_engine
 from dotenv import load_dotenv
 from sqlalchemy.engine import Engine
 import os
+from sklearn.model_selection import train_test_split
+from typing import Tuple
+
 
 logger = Logger("data_ingestion", level='DEBUG').get_logger()
 
@@ -32,7 +35,9 @@ def get_database_engine() -> Engine:
         logger.error(f"Error occurred while creating database engine: {e}")
         raise
 
-def extract_data_to_csv(query: str, file_name: str) -> None:
+
+
+def extract_data(query: str) -> pd.DataFrame:
     """Executes the provided SQL query, extracts data from the database, and saves it to a CSV file.
     
     Args:
@@ -48,18 +53,83 @@ def extract_data_to_csv(query: str, file_name: str) -> None:
         logger.debug(f"Executing Query: {query}")
         data = pd.read_sql_query(query, engine)
         logger.debug(f"Extracted Data Shape: {data.shape}")
-        
-        data.to_csv(file_name, index=False)
-        logger.info(f"Data extracted and saved to {file_name} successfully")
+        logger.info(f"Data extracted  successfully")
+        return data
+   
     except Exception as e:
         logger.error(f"Error occurred while extracting data to CSV: {e}")
+        raise
+
+
+
+
+
+def split_data(data:pd.DataFrame,test_size:float,random_state:int) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Splits the data into training and testing sets.
+    
+    Args:
+        data (pd.DataFrame): The input data to split.
+        test_size (float): The proportion of the dataset to include in the test split.
+        random_state (int): Controls the randomness of the split.
+        """
+    
+    logger.info("Splitting data into training and testing sets")
+    try:
+        train_data, test_data = train_test_split(data, test_size=test_size, random_state=random_state,stratify=data['churn_status'])
+        logger.debug(f"Training Data Shape: {train_data.shape}, Testing Data Shape: {test_data.shape}")
+        return train_data, test_data
+    except Exception as e:
+        logger.error(f"Error occurred while splitting data: {e}")
+        raise
+    
+
+
+
+def save_data_to_csv(data:pd.DataFrame, file_name:str,file_path:str) -> None:
+    """Saves the provided DataFrame to a CSV file.
+    
+    Args:
+        data (pd.DataFrame): The data to save.
+        file_name (str): The path to the CSV file where the data will be saved.
+        file_path (str): The directory path where the CSV file will be saved.
+    Returns:    
+        None
+    """
+    logger.info("Saving data to CSV")
+    try:
+        os.makedirs(file_path, exist_ok=True)
+        full_path = os.path.join(file_path, f"{file_name}.csv")
+
+        data.to_csv(full_path, index=True)  
+        logger.info(f"Data saved to {full_path} successfully")
+    except Exception as e:
+        logger.error(f"Error occurred while saving data to CSV: {e}")
+        raise
+
+
+
+
+def load_data_from_csv(file_name:str) -> pd.DataFrame:
+    """Loads data from a CSV file into a DataFrame.
+    
+    Args:
+        file_name (str): The path to the CSV file to load.  
+    Returns:
+        pd.DataFrame: The loaded data as a DataFrame."""
+    logger.info(f"Loading data from {file_name}")
+    try:
+        data = pd.read_csv(file_name)
+        logger.debug(f"Loaded Data Shape: {data.shape}")
+        return data
+    except Exception as e:
+        logger.error(f"Error occurred while loading data from CSV: {e}")
         raise
 
 def main():
     try:
         logger.info("Starting data ingestion process")
         file_path = './data/raw/raw_data.csv'
-        
+        data = None
         if not os.path.exists(file_path):
             os.makedirs('./data/raw', exist_ok=True)
             
@@ -117,10 +187,18 @@ def main():
                     customer_unique_id;
 
             """ 
-            extract_data_to_csv(query, file_path)
+            data = extract_data(query)
+            save_data_to_csv(data, 'raw_data', './data/raw')
         else:
             logger.info("Raw data already exists. Skipping extraction.")
+        data = load_data_from_csv(file_path)
+        train_data, test_data = split_data(data, test_size=0.2, random_state=42)
+        save_data_to_csv(train_data, 'train_data', './data/processed')
+        logger.debug(f"Train data saved with shape: {train_data.shape}")
+        save_data_to_csv(test_data, 'test_data', './data/processed')
+        logger.debug(f"Test data saved with shape: {test_data.shape}")
 
+        logger.info("Data ingestion process completed successfully")
     except Exception as e:
         logger.error(f"Error occurred in main function: {e}")
         raise    
