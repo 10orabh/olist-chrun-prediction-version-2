@@ -44,16 +44,28 @@ def data_preprocessing(data: pd.DataFrame) -> pd.DataFrame:
     try:
         logger.debug("Starting data preprocessing.")
         # feature selection 
-        data = data.drop(columns=['customer_unique_id','recency']) 
-        logger.debug("Dropped unnecessary columns: 'customer_unique_id', 'recency'")
+        data = data.drop(columns=['customer_unique_id','recency','customer_city','customer_state']) 
+        logger.debug("Dropped unnecessary columns: 'customer_unique_id', 'recency', 'customer_city', 'customer_state'")
         
         # feature encoding stage 
         categorical_cols = data.select_dtypes(include=['object']).columns   
         logger.debug(f"Categorical columns identified for encoding: {categorical_cols.tolist()}")
+        if categorical_cols.empty:
+            logger.debug("No categorical columns found for encoding.")
+            return data
         encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
         encoded_features = encoder.fit_transform(data[categorical_cols])
+        
+        encoded_df = pd.DataFrame(
+            encoded_features, 
+            columns=encoder.get_feature_names_out(categorical_cols),
+            index=data.index
+        )
         logger.debug("Categorical variables encoded successfully.")
-        logger.debug("Data preprocessing completed.")
+
+        data.drop(columns=categorical_cols, inplace=True)
+        data = pd.concat([data, encoded_df], axis=1)
+        logger.debug("Encoding completed and merged successfully.")
         return data
     except Exception as e:
         logger.error(f"Error occurred while preprocessing data: {e}")

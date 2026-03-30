@@ -207,3 +207,4 @@ data/
 artifacts/
 /data
 .env
+/models
