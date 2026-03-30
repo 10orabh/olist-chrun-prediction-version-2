@@ -79,15 +79,15 @@ def save_preprocessed_data(data: pd.DataFrame, file_name: str, file_path: str) -
 
 def main():
     try:
-        uncleaned_data_path = './data/processed'
-        preprocessed_data_path = './data/processed'
+        uncleaned_data_path = './data/processed/split'
+        preprocessed_data_path = './data/processed/transformed_data'
         
         logger.info("Starting data preprocessing process")
        
         
-        train_data = load_data_from_csv(os.path.join(uncleaned_data_path, 'train_data.csv'))
+        train_data = load_data_from_csv(os.path.join(uncleaned_data_path, 'X_train.csv'))
         logger.debug(f"Train data loaded with shape: {train_data.shape}")
-        test_data = load_data_from_csv(os.path.join(uncleaned_data_path, 'test_data.csv'))
+        test_data = load_data_from_csv(os.path.join(uncleaned_data_path, 'X_test.csv'))
         logger.debug(f"Test data loaded with shape: {test_data.shape}")
         
         # Clean data
@@ -103,8 +103,8 @@ def main():
         logger.debug(f"Preprocessed test data shape: {preprocessed_test_data.shape}")
 
         # Save preprocessed data
-        save_preprocessed_data(preprocessed_train_data, 'preprocessed_train_data', './data/processed')
-        save_preprocessed_data(preprocessed_test_data, 'preprocessed_test_data', './data/processed')
+        save_preprocessed_data(preprocessed_train_data, 'transformed_X_train', preprocessed_data_path)
+        save_preprocessed_data(preprocessed_test_data, 'transformed_X_test', preprocessed_data_path)
         logger.info("Data preprocessing process completed successfully")
     except Exception as e:
         logger.error(f"Error occurred in the main function of data preprocessing: {e}")
