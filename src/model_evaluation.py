@@ -79,7 +79,7 @@ def save_metrics(metrics: Dict[str, float], file_path: str) -> None:
 
 def main():
     try:
-        model_path = './models/logistic_regression_model.pkl'
+        model_path = './artifacts/models/logistic_regression_model.pkl'
         test_data_path = './data/processed/transformed_data/transformed_X_test.csv'
         test_labels_path = './data/processed/split/y_test.csv'
         metrics_output_path = './artifacts/reports/metrics.json'

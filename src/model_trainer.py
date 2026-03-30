@@ -1,4 +1,5 @@
 from utils.logger import Logger
+from utils.yaml_loader import load_yaml
 from src.data_ingestion import load_data_from_csv
 import pandas as pd 
 from sklearn.linear_model import LogisticRegression
@@ -6,6 +7,7 @@ from sklearn.base import ClassifierMixin
 import pickle
 from typing import Union
 import os
+
 
 logger = Logger('model_training', level="DEBUG").get_logger()
 
@@ -70,7 +72,10 @@ def main():
         y_train = load_data_from_csv('./data/processed/split/y_train.csv')
 
         # Train model
-        model = train_model('logistic regression', X_train, y_train)
+        params = load_yaml('./params.yaml')
+        model_name = params['model_trainer']['model_name']
+        class_weight = params['model_trainer']['class_weight']
+        model = train_model(model_name, X_train, y_train, class_weight=class_weight)
 
         # Save model
         save_model(model, 'logistic_regression_model', './artifacts/models')

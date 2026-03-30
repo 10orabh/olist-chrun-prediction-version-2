@@ -1,3 +1,4 @@
+
 import pandas as pd 
 from utils.logger import Logger
 from sqlalchemy import create_engine
@@ -6,7 +7,7 @@ from sqlalchemy.engine import Engine
 import os
 from sklearn.model_selection import train_test_split
 from typing import Tuple, Union
-
+from utils.yaml_loader import load_yaml
 
 logger = Logger("data_ingestion", level='DEBUG').get_logger()
 
@@ -194,8 +195,9 @@ def main():
             save_data_to_csv(data, 'raw_data', './data/raw')
         else:
             logger.info("Raw data already exists. Skipping extraction.")
-        test_size = 0.5
-        random_state = 42
+        params = load_yaml('./params.yaml')
+        test_size = params['data_ingestion']['test_size']
+        random_state = params['data_ingestion']['random_state']
         data = load_data_from_csv(file_path)
         X_train, X_test, y_train, y_test = split_data(data, test_size=test_size, random_state=random_state)
         save_data_to_csv(X_train, 'X_train', './data/processed/split')
