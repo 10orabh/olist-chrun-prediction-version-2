@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from sqlalchemy.engine import Engine
 import os
 from sklearn.model_selection import train_test_split
-from typing import Tuple
+from typing import Tuple, Union
 
 
 logger = Logger("data_ingestion", level='DEBUG').get_logger()
@@ -64,20 +64,23 @@ def extract_data(query: str) -> pd.DataFrame:
 
 
 
-def split_data(data:pd.DataFrame,test_size:float,random_state:int) -> tuple[pd.DataFrame, pd.DataFrame]:
+def split_data(data,test_size:float,random_state:int) -> tuple[pd.DataFrame,pd.DataFrame,pd.Series,pd.Series]:
     """Splits the data into training and testing sets.
     
     Args:
-        data (pd.DataFrame): The input data to split.
+        X (pd.DataFrame): The input features to split.
+        y (pd.Series): The target variable to split.
         test_size (float): The proportion of the dataset to include in the test split.
         random_state (int): Controls the randomness of the split.
         """
     
     logger.info("Splitting data into training and testing sets")
     try:
-        train_data, test_data = train_test_split(data, test_size=test_size, random_state=random_state,stratify=data['churn_status'])
-        logger.debug(f"Training Data Shape: {train_data.shape}, Testing Data Shape: {test_data.shape}")
-        return train_data, test_data
+        X = data.drop(columns=['churn_status'])
+        y = data['churn_status']     
+        X_train, X_test, y_train, y_test= train_test_split(X, y, test_size=test_size, random_state=random_state, stratify=y)
+        logger.debug(f"Training Data Shape: {X_train.shape}, Testing Data Shape: {X_test.shape}")
+        return X_train, X_test, y_train, y_test
     except Exception as e:
         logger.error(f"Error occurred while splitting data: {e}")
         raise
@@ -85,7 +88,7 @@ def split_data(data:pd.DataFrame,test_size:float,random_state:int) -> tuple[pd.D
 
 
 
-def save_data_to_csv(data:pd.DataFrame, file_name:str,file_path:str) -> None:
+def save_data_to_csv(data:Union[pd.DataFrame, pd.Series], file_name:str,file_path:str) -> None:
     """Saves the provided DataFrame to a CSV file.
     
     Args:
@@ -100,7 +103,7 @@ def save_data_to_csv(data:pd.DataFrame, file_name:str,file_path:str) -> None:
         os.makedirs(file_path, exist_ok=True)
         full_path = os.path.join(file_path, f"{file_name}.csv")
 
-        data.to_csv(full_path, index=True)  
+        data.to_csv(full_path, index=False)  
         logger.info(f"Data saved to {full_path} successfully")
     except Exception as e:
         logger.error(f"Error occurred while saving data to CSV: {e}")
@@ -192,11 +195,15 @@ def main():
         else:
             logger.info("Raw data already exists. Skipping extraction.")
         data = load_data_from_csv(file_path)
-        train_data, test_data = split_data(data, test_size=0.2, random_state=42)
-        save_data_to_csv(train_data, 'train_data', './data/processed')
-        logger.debug(f"Train data saved with shape: {train_data.shape}")
-        save_data_to_csv(test_data, 'test_data', './data/processed')
-        logger.debug(f"Test data saved with shape: {test_data.shape}")
+        X_train, X_test, y_train, y_test = split_data(data, test_size=0.2, random_state=42)
+        save_data_to_csv(X_train, 'X_train', './data/processed/split')
+        logger.debug(f"Train data saved with shape: {X_train.shape}")
+        save_data_to_csv(X_test, 'X_test', './data/processed/split')
+        logger.debug(f"Test data saved with shape: {X_test.shape}")
+        save_data_to_csv(y_train, 'y_train', './data/processed/split')
+        logger.debug(f"Train labels saved with shape: {y_train.shape}")
+        save_data_to_csv(y_test, 'y_test', './data/processed/split')
+        logger.debug(f"Test labels saved with shape: {y_test.shape}")
 
         logger.info("Data ingestion process completed successfully")
     except Exception as e:
