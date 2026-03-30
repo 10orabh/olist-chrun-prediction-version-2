@@ -73,7 +73,7 @@ def main():
         model = train_model('logistic regression', X_train, y_train)
 
         # Save model
-        save_model(model, 'logistic_regression_model', './models')
+        save_model(model, 'logistic_regression_model', './artifacts/models')
         logger.debug("Trained model saved successfully.")
        
     except Exception as e:

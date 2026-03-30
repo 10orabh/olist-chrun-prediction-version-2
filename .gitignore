@@ -208,3 +208,4 @@ artifacts/
 /data
 .env
 /models
+evaluation_metrics
