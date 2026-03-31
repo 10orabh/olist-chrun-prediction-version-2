@@ -1,3 +1,5 @@
+import mlflow
+from mlflow.tracking import MlflowClient
 import json
 import os
 import pickle
@@ -9,7 +11,9 @@ from typing import Union, Dict, Any
 
 # Initialize logger
 logger = Logger('model_evaluation', level="DEBUG").get_logger()
+import dagshub
 
+dagshub.init(repo_owner='10orabh', repo_name='olist-chrun-prediction-version-2', mlflow=True)
 def load_model(model_path: str) -> Any:
     """Loads a trained model from the specified path.
     
@@ -93,7 +97,21 @@ def main():
         y_test = pd.read_csv(test_labels_path)
         logger.debug(f"Test labels loaded with shape: {y_test.shape}")
         
+        
+        mlflow.set_tracking_uri("https://dagshub.com/10orabh/olist-chrun-prediction-version-2.mlflow")
+      
+        with open('./run_info.json', 'r') as f:
+            run_info = json.load(f)
+        run_id = run_info.get("run_id")
+        client = MlflowClient()
+    
+    
         metrics = evaluate_model(model, X_test, pd.Series(y_test.iloc[:, 0]))
+        for metric_name, metric_value in metrics.items():
+            client.log_metric(run_id, metric_name, metric_value)
+      
+            
+            
         save_metrics(metrics, metrics_output_path)
         logger.info("Model evaluation process completed successfully.")
     except Exception as e:
@@ -101,4 +119,5 @@ def main():
         raise
 
 if __name__ == "__main__":
+    
     main()

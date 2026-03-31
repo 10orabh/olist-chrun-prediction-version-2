@@ -209,3 +209,6 @@ artifacts/
 .env
 /models
 evaluation_metrics
+/mlruns
+/run_info.json
+mlflow.db
