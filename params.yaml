@@ -2,11 +2,36 @@ data_ingestion:
   test_size: 0.2
   random_state: 42
 
-model_trainer:
-  model_name: "logistic regression"
+data_preprocessing:
+  std_features:
+    - frequency
+    - total_payment 
+    - avg_installments
+  min_max_features:
+    - 'avg_review'
 
-  param_grid:
-    C: [0.01, 0.1, 1, 10, 100]
-    penalty: ["l1", "l2"]
-    solver: ["liblinear"]
-    max_iter: [100, 200]
+model_trainer:
+  models:
+    LogisticRegression:
+      class_name: LogisticRegression
+      module: sklearn.linear_model
+      best_params:
+        C: 100
+        class_weight: 'balanced'
+        l1_ratio: 0.5
+        max_iter: 2000
+        penalty: 'l1'
+        solver: 'saga'
+
+    RandomForestClassifier:
+      class_name: RandomForestClassifier
+      module: sklearn.ensemble    
+      best_params:
+        n_estimators: 200
+        max_depth: 10
+        min_samples_split: 5
+        class_weight: 'balanced'
+
+model_pusher:
+  s3_bucket: "olist-model-bucket"
+  s3_model_key: "models/churn_model.pkl"

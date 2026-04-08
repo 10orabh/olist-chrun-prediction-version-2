@@ -1,125 +1,122 @@
-import pandas as pd 
-import numpy as np 
-from utils.logger import Logger
-from typing import Union
-from sklearn.preprocessing import StandardScaler, OneHotEncoder
-from src.data_ingestion import save_data_to_csv,load_data_from_csv
 import os
+import numpy as np
+import pandas as pd
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
+from imblearn.combine import SMOTEENN
 
-
+from utils.logger import Logger
+from utils.yaml_loader import load_yaml
+from src.data_ingestion import save_data_to_csv, load_data_from_csv
+from utils.utility_functions import save_object, save_numpy_array_data
 
 logger = Logger('data_preprocessing', level="DEBUG").get_logger()
 
 def data_clean(data: pd.DataFrame) -> pd.DataFrame:
-    """Cleans the data by handling missing values, encoding categorical variables, and performing feature engineering.
-    
-    Args:
-        data (pd.DataFrame): The raw data to be cleaned.
-    
-    Returns:
-        pd.DataFrame: The cleaned data.
-    """
     try:
-        logger.debug("Starting data cleaning process.")
-        # Example cleaning steps
-        data = data.drop_duplicates()    
-        logger.debug("Data cleaning completed.")
-        return data
+        logger.debug("Cleaning duplicates.")
+        return data.drop_duplicates()
     except Exception as e:
-        logger.error(f"Error occurred while cleaning data: {e}")
+        logger.error(f"Error in data_clean: {e}")
         raise
 
-
-
-def data_preprocessing(data: pd.DataFrame) -> pd.DataFrame:
-    """Preprocesses the data by performing scaling, encoding, and feature selection.
-    
-    Args:
-        data (pd.DataFrame): The cleaned data to be preprocessed.
-        
-    Returns:
-        pd.DataFrame: The preprocessed data ready for modeling.
-    """
-    
+def drop_unwanted_columns(data: pd.DataFrame) -> pd.DataFrame:
     try:
-        logger.debug("Starting data preprocessing.")
-        # feature selection 
-        data = data.drop(columns=['customer_unique_id','recency','customer_city','customer_state']) 
-        logger.debug("Dropped unnecessary columns: 'customer_unique_id', 'recency', 'customer_city', 'customer_state'")
+        # Direct columns drop
+        cols_to_drop = ['customer_unique_id', 'recency', 'customer_city', 'customer_state']
+        data = data.drop(columns=cols_to_drop, errors='ignore')
+        logger.debug(f"Dropped columns: {cols_to_drop}")
+        return data
+    except Exception as e:
+        logger.error(f"Error in drop_unwanted_columns: {e}")
+        raise
+
+def get_data_transformer_object() -> ColumnTransformer:
+    try:
+        logger.info("Initializing Data Transformer Pipeline")
+        params_yaml = load_yaml('./params.yaml')
         
-        # feature encoding stage 
-        categorical_cols = data.select_dtypes(include=['object']).columns   
-        logger.debug(f"Categorical columns identified for encoding: {categorical_cols.tolist()}")
-        if categorical_cols.empty:
-            logger.debug("No categorical columns found for encoding.")
-            return data
-        encoder = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
-        encoded_features = encoder.fit_transform(data[categorical_cols])
-        
-        encoded_df = pd.DataFrame(
-            encoded_features, 
-            columns=encoder.get_feature_names_out(categorical_cols),
-            index=data.index
+        std_features = params_yaml['data_preprocessing']['std_features']
+        min_max_features = params_yaml['data_preprocessing']['min_max_features']
+
+        std_pipeline = Pipeline(steps=[
+            ("imputer", SimpleImputer(strategy="median")),
+            ("std_scaler", StandardScaler())
+        ])
+
+        minmax_pipeline = Pipeline(steps=[
+            ("imputer", SimpleImputer(strategy="median")),
+            ("minmax_scaler", MinMaxScaler())
+        ])
+
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ('StandardScaler', std_pipeline, std_features),
+                ('MinMaxScaler', minmax_pipeline, min_max_features)
+            ],
+            remainder="passthrough"
         )
-        logger.debug("Categorical variables encoded successfully.")
-
-        data.drop(columns=categorical_cols, inplace=True)
-        data = pd.concat([data, encoded_df], axis=1)
-        logger.debug("Encoding completed and merged successfully.")
-        return data
+        return preprocessor
     except Exception as e:
-        logger.error(f"Error occurred while preprocessing data: {e}")
+        logger.error(f"Error in get_data_transformer_object: {e}")
         raise
-
-def save_preprocessed_data(data: pd.DataFrame, file_name: str, file_path: str) -> None:
-    """Saves the preprocessed data to a CSV file.
-    
-    Args:
-        data (pd.DataFrame): The preprocessed data to be saved.
-        file_name (str): The name of the CSV file to save the data to.
-        file_path (str): The directory path where the CSV file will be saved.
-    
-    Returns:
-        None
-    """
-    try:
-        logger.debug("Saving preprocessed data to CSV.")
-        save_data_to_csv(data, file_name, file_path)
-        logger.debug("Preprocessed data saved successfully.")
-    except Exception as e:
-        logger.error(f"Error occurred while saving preprocessed data: {e}")
 
 def main():
     try:
-        uncleaned_data_path = './data/processed/split'
-        preprocessed_data_path = './data/processed/transformed_data'
-        
+        uncleaned_data_path = './data/raw'
+        processed_data_path = './data/processed'
+        TARGET_COLUMN = 'churn_status'
+
         logger.info("Starting data preprocessing process")
-       
         
-        train_data = load_data_from_csv(os.path.join(uncleaned_data_path, 'X_train.csv'))
-        logger.debug(f"Train data loaded with shape: {train_data.shape}")
-        test_data = load_data_from_csv(os.path.join(uncleaned_data_path, 'X_test.csv'))
-        logger.debug(f"Test data loaded with shape: {test_data.shape}")
+        # 1. Load Data
+        train_df = load_data_from_csv(os.path.join(uncleaned_data_path, 'X_train.csv'))
+        test_df = load_data_from_csv(os.path.join(uncleaned_data_path, 'X_test.csv'))
+
+        # 2. Clean & Drop Columns
+        train_df = data_clean(train_df)
+        test_df = data_clean(test_df)
+
+        X_train = drop_unwanted_columns(train_df.drop(columns=[TARGET_COLUMN]))
+        y_train = train_df[TARGET_COLUMN]
         
-        # Clean data
-        cleaned_train_data = data_clean(train_data)
-        logger.debug(f"Cleaned train data shape: {cleaned_train_data.shape}")
-        cleaned_test_data = data_clean(test_data)
-        logger.debug(f"Cleaned test data shape: {cleaned_test_data.shape}")
+        X_test = drop_unwanted_columns(test_df.drop(columns=[TARGET_COLUMN]))
+        y_test = test_df[TARGET_COLUMN]
 
-        # Preprocess data
-        preprocessed_train_data = data_preprocessing(cleaned_train_data)
-        logger.debug(f"Preprocessed train data shape: {preprocessed_train_data.shape}")
-        preprocessed_test_data = data_preprocessing(cleaned_test_data)
-        logger.debug(f"Preprocessed test data shape: {preprocessed_test_data.shape}")
+        # 3. Apply Scaling
+        preprocessor = get_data_transformer_object()
+        
+        logger.info("Applying fit_transform on Train and transform on Test")
+        train_arr_preprocessed = preprocessor.fit_transform(X_train)
+        test_arr_preprocessed = preprocessor.transform(X_test)
 
-        # Save preprocessed data
-        save_preprocessed_data(preprocessed_train_data, 'transformed_X_train', preprocessed_data_path)
-        save_preprocessed_data(preprocessed_test_data, 'transformed_X_test', preprocessed_data_path)
-        logger.info("Data preprocessing process completed successfully")
+        # 4. Handle Imbalance (Only on Train)
+        logger.info("Applying SMOTEENN on Training data")
+        smt = SMOTEENN(sampling_strategy="minority", random_state=42)
+        X_train_final, y_train_final = smt.fit_resample(train_arr_preprocessed, y_train)
+
+        # 5. Merge Features and Target
+        # FIX: Test data ko bhi array format mein convert karna hoga after transformation
+        train_final_arr = np.c_[X_train_final, np.array(y_train_final)]
+        test_final_arr = np.c_[test_arr_preprocessed, np.array(y_test)]
+
+        # 6. Save Artifacts
+        logger.info("Saving Preprocessor and Numpy arrays")
+        os.makedirs('./artifacts', exist_ok=True)
+        os.makedirs(processed_data_path, exist_ok=True)
+
+        save_object(file_path='./artifacts/preprocessor/preprocessor.pkl', obj=preprocessor)
+        
+        # Save as .npy files
+        np.save(os.path.join(processed_data_path, 'train.npy'), train_final_arr)
+        np.save(os.path.join(processed_data_path, 'test.npy'), test_final_arr)
+
+        logger.info("✅ Data preprocessing completed successfully!")
+
     except Exception as e:
-        logger.error(f"Error occurred in the main function of data preprocessing: {e}")
+        logger.error(f"Main execution failed: {e}")
         raise
 
 if __name__ == "__main__":

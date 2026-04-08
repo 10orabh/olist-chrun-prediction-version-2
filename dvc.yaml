@@ -3,38 +3,39 @@ stages:
     cmd: python -m src.data_ingestion
     deps:
       - src/data_ingestion.py
+      - params.yaml
     outs:
       - data/raw/raw_data.csv
-      - data/processed/split/X_train.csv
-      - data/processed/split/X_test.csv
-      - data/processed/split/y_train.csv
-      - data/processed/split/y_test.csv
+      - data/raw/X_train.csv
+      - data/raw/X_test.csv
 
   data_preprocessing:
     cmd: python -m src.data_preprocessing
     deps:
       - src/data_preprocessing.py
-      - data/processed/split/X_train.csv
-      - data/processed/split/X_test.csv
+      - data/raw/X_train.csv
+      - data/raw/X_test.csv
+      - params.yaml
     outs:
-      - data/processed/transformed_data/transformed_X_train.csv
-      - data/processed/transformed_data/transformed_X_test.csv
-
+      - data/processed/train.npy
+      - data/processed/test.npy
+      - artifacts/preprocessor/preprocessor.pkl
 
   model_trainer:
     cmd: python -m src.model_trainer
     deps:
       - src/model_trainer.py
-      - data/processed/transformed_data/transformed_X_train.csv
-      - data/processed/transformed_data/transformed_X_test.csv
+      - data/processed/train.npy
+      - params.yaml
     outs:
-      - artifacts/models/logistic_regression_model.pkl
+      - artifacts/models/best_model.pkl
 
   model_evaluation:
     cmd: python -m src.model_evaluation
     deps:
       - src/model_evaluation.py
-      - artifacts/models/logistic_regression_model.pkl
-      - data/processed/transformed_data/transformed_X_test.csv
-    outs:
-      - artifacts/reports/metrics.json
+      - artifacts/models/best_model.pkl
+      - data/processed/test.npy
+    metrics:
+      - artifacts/reports/metrics.json:
+          cache: false

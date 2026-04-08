@@ -65,7 +65,7 @@ def extract_data(query: str) -> pd.DataFrame:
 
 
 
-def split_data(data,test_size:float,random_state:int) -> tuple[pd.DataFrame,pd.DataFrame,pd.Series,pd.Series]:
+def split_data(data,test_size:float,random_state:int) -> tuple[pd.DataFrame,pd.DataFrame]:
     """Splits the data into training and testing sets.
     
     Args:
@@ -76,12 +76,16 @@ def split_data(data,test_size:float,random_state:int) -> tuple[pd.DataFrame,pd.D
         """
     
     logger.info("Splitting data into training and testing sets")
-    try:
-        X = data.drop(columns=['churn_status'])
-        y = data['churn_status']     
-        X_train, X_test, y_train, y_test= train_test_split(X, y, test_size=test_size, random_state=random_state, stratify=y)
-        logger.debug(f"Training Data Shape: {X_train.shape}, Testing Data Shape: {X_test.shape}")
-        return X_train, X_test, y_train, y_test
+    try: 
+        unique_customers = data['customer_unique_id'].unique()
+        train_ids, test_ids = train_test_split(unique_customers, test_size=test_size, random_state=random_state)
+        
+        train_df = data[data['customer_unique_id'].isin(train_ids)]
+        test_df = data[data['customer_unique_id'].isin(test_ids)]
+            
+        
+        logger.debug(f"Training Data Shape: {train_df.shape}, Testing Data Shape: {test_df.shape}")
+        return train_df,test_df
     except Exception as e:
         logger.error(f"Error occurred while splitting data: {e}")
         raise
@@ -138,50 +142,56 @@ def main():
             os.makedirs('./data/raw', exist_ok=True)
             
             query = """
-                WITH Orders_detail AS (
-                SELECT 
-                    o.order_id,
-                    o.order_purchase_timestamp,
-                    o.order_status,
-                    c.customer_id,
-                    c.customer_unique_id,
-                    c.customer_city,
-                    c.customer_state,
-                    p.payment_type,
-                    p.payment_installments,
-                    p.payment_value
-                FROM 
-                    olist_orders_dataset AS o
-                INNER JOIN 
-                    olist_customers_dataset AS c 
-                    ON o.customer_id = c.customer_id
-                INNER JOIN 
-                    olist_order_payments_dataset AS p 
-                    ON o.order_id = p.order_id
-                WHERE 
-                    o.order_purchase_timestamp < '2018-08-01'::date
-                    AND o.order_status = 'delivered'    
+            WITH Orders_detail AS (
+            SELECT 
+                o.order_id,
+                o.order_purchase_timestamp,
+                o.order_status,
+                c.customer_id,
+                c.customer_unique_id,
+                c.customer_city,
+                c.customer_state,
+                p.payment_type,
+                p.payment_installments,
+                p.payment_value,
+				items.price,
+				items.freight_value,
+				reviews.review_score
+            FROM 
+                olist_orders_dataset AS o
+            INNER JOIN 
+                olist_customers_dataset AS c 
+                ON o.customer_id = c.customer_id
+            INNER JOIN 
+                olist_order_payments_dataset AS p 
+                ON o.order_id = p.order_id
+			
+			INNER JOIN
+				olist_order_items_dataset as items
+				ON
+				items.order_id = o.order_id
+			INNER JOIN
+				olist_order_reviews_dataset as reviews
+				ON
+				reviews.order_id = o.order_id
+            WHERE 
+					o.order_status = 'delivered'    
             )
 
                 SELECT
                     customer_unique_id,
 
                     -- Features (X)
-                    EXTRACT(DAY FROM ('2018-08-01'::date - MAX(order_purchase_timestamp))) AS recency,
+                    EXTRACT(DAY FROM ('2018-10-17'::date - MAX(order_purchase_timestamp))) AS recency,
                     SUM(payment_value) AS total_payment,
                     ROUND(AVG(payment_installments), 1) AS avg_installments,
                     MAX(customer_city) AS customer_city,
                     MAX(customer_state) AS customer_state,
+					Count(order_id) as frequency,
+					ROUND(Avg(review_score), 1) as avg_review,
 
-                    -- Target Option 1
                     CASE 
-                        WHEN COUNT(DISTINCT order_id) > 1 THEN 1 
-                        ELSE 0 
-                    END AS is_repeat_purchase, 
-
-                    -- Target Option 2
-                    CASE 
-                        WHEN EXTRACT(DAY FROM ('2018-08-01'::date - MAX(order_purchase_timestamp))) > 120 THEN 1
+                        WHEN EXTRACT(DAY FROM ('2018-08-01'::date - MAX(order_purchase_timestamp))) > 349 THEN 1
                         ELSE 0 
                     END AS churn_status
 
@@ -191,6 +201,7 @@ def main():
                     customer_unique_id;
 
             """ 
+                       
             data = extract_data(query)
             save_data_to_csv(data, 'raw_data', './data/raw')
         else:
@@ -199,16 +210,12 @@ def main():
         test_size = params['data_ingestion']['test_size']
         random_state = params['data_ingestion']['random_state']
         data = load_data_from_csv(file_path)
-        X_train, X_test, y_train, y_test = split_data(data, test_size=test_size, random_state=random_state)
-        save_data_to_csv(X_train, 'X_train', './data/processed/split')
+        X_train, X_test = split_data(data, test_size=test_size, random_state=random_state)
+        save_data_to_csv(X_train, 'X_train', './data/raw')
         logger.debug(f"Train data saved with shape: {X_train.shape}")
-        save_data_to_csv(X_test, 'X_test', './data/processed/split')
+        save_data_to_csv(X_test, 'X_test', './data/raw')
         logger.debug(f"Test data saved with shape: {X_test.shape}")
-        save_data_to_csv(y_train, 'y_train', './data/processed/split')
-        logger.debug(f"Train labels saved with shape: {y_train.shape}")
-        save_data_to_csv(y_test, 'y_test', './data/processed/split')
-        logger.debug(f"Test labels saved with shape: {y_test.shape}")
-
+    
         logger.info("Data ingestion process completed successfully")
     except Exception as e:
         logger.error(f"Error occurred in main function: {e}")
