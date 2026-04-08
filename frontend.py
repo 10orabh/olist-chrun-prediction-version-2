@@ -36,19 +36,41 @@ if submit_button:
     }
     
     try:
-        response = requests.post("http://127.0.0.1:8000/predict", json=payload)
+        response = requests.post(
+                                "https://soraubh7march-churn-api.hf.space/predict",
+                                json=payload,
+                                timeout=30
+)
         
         if response.status_code == 200:
-            result = response.json()
-            st.divider()
-            if result['churn_prediction'] == 1:
-                st.error(f"⚠️ High Risk: Customer might Churn!")
-            else:
-                st.success(f"✅ Low Risk: Customer is likely to Stay.")
-            st.metric("Churn Probability", f"{round(result['churn_probability'] * 100, 2)}%")
+            try:
+                result = response.json()
+        
+                if result.get("status") != "success":
+                    st.error("Prediction failed on API side")
+                else:
+                    st.divider()
+        
+                    if result['prediction'] == 1:
+                        st.error("⚠️ High Risk: Customer might Churn!")
+                    else:
+                        st.success("✅ Low Risk: Customer is likely to Stay.")
+        
+                    st.metric(
+                        "Churn Probability",
+                        f"{round(result['probability'] * 100, 2)}%"
+                    )
+        
+            except Exception:
+                st.error("⚠️ API is waking up... try again in 10–20 seconds.")
+        
         else:
             st.error(f"API Error: {response.text}")
             
     except Exception as e:
         logger.error(f"Failed: {e}")
         st.error("Check if FastAPI is running.")
+
+
+
+        

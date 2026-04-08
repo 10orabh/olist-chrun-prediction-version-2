@@ -35,3 +35,4 @@ model_trainer:
 model_pusher:
   s3_bucket: "olist-model-bucket"
   s3_model_key: "models/churn_model.pkl"
+  s3_preprocessor_key: "preprocessor/preprocessor.pkl"

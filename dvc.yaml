@@ -39,3 +39,12 @@ stages:
     metrics:
       - artifacts/reports/metrics.json:
           cache: false
+  
+  model_pusher:
+      cmd: python -m src.model_pusher
+      deps:
+        - src/model_pusher.py           # Script khud
+        - artifacts/models/best_model.pkl # Naya trained model
+        - artifacts/reports/metrics.json  # Naye model ki metrics
+        - data/processed/test.npy        # S3 model ko test karne ke liye data
+        - params.yaml

@@ -29,6 +29,7 @@ def main():
     
         local_metrics_path = './artifacts/reports/metrics.json'
         local_model_path = './artifacts/models/best_model.pkl'
+        local_preprocessor_path = './artifacts/preprocessor/preprocessor.pkl'
         
         with open(local_metrics_path, 'r') as f:
             new_model_report = json.load(f)
@@ -40,7 +41,7 @@ def main():
         s3 = S3Connector()
         bucket = config['s3_bucket']
         s3_model_key = config['s3_model_key']
-        
+        s3_preprocessor_key = config['s3_preprocessor_key']
         
         temp_s3_model = "champion_model_from_s3.pkl"
         is_model_accepted = False
@@ -64,7 +65,7 @@ def main():
                 logger.info("Champion is still better. No push needed.")
                 is_model_accepted = False
             
-            # Temp file delete karein
+            
             if os.path.exists(temp_s3_model):
                 os.remove(temp_s3_model)
         else:
@@ -74,11 +75,12 @@ def main():
 
         # 3. Push Logic
         if is_model_accepted:
-            logger.info("Pushing model and metrics to S3...")
+            logger.info("Pushing model and preprocessor to S3...")
             s3.upload_file(local_model_path, bucket, s3_model_key)
-            logger.info("✅ Successfully pushed to S3.")
+            s3.upload_file(local_preprocessor_path, bucket, s3_preprocessor_key)
+            logger.info("Successfully pushed to S3.")
         else:
-            logger.info("❌ Push rejected. Production model remains unchanged.")
+            logger.info("Push rejected. Production model remains unchanged.")
 
     except Exception as e:
         logger.error(f"Model Pusher failed: {e}")

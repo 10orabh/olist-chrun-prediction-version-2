@@ -1,0 +1,11 @@
+venv/
+env/
+.env
+__pycache__/
+.git/
+data/
+artifacts/
+*.pkl
+*.csv
+.ipynb_checkpoints/
+notebooks/
