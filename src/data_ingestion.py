@@ -3,6 +3,7 @@ import pandas as pd
 from utils.logger import Logger
 from sqlalchemy import create_engine
 from dotenv import load_dotenv
+
 from sqlalchemy.engine import Engine
 import os
 from sklearn.model_selection import train_test_split

@@ -11,6 +11,7 @@ class S3Connector:
     def __init__(self):
         self.aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
         self.aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+        self.endpoint_url = os.getenv("AWS_ENDPOINT_URL")
         self.region_name = os.getenv("AWS_REGION", "us-east-1")
         self.s3_client = self._create_s3_client()
 
@@ -19,6 +20,7 @@ class S3Connector:
             logger.info("Connecting to AWS S3...")
             client = boto3.client(
                 's3',
+                endpoint_url=self.endpoint_url,
                 aws_access_key_id=self.aws_access_key,
                 aws_secret_access_key=self.aws_secret_key,
                 region_name=self.region_name

@@ -31,6 +31,7 @@ def main():
         local_model_path = './artifacts/models/best_model.pkl'
         local_preprocessor_path = './artifacts/preprocessor/preprocessor.pkl'
         
+        
         with open(local_metrics_path, 'r') as f:
             new_model_report = json.load(f)
         

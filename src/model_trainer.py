@@ -62,6 +62,7 @@ def main():
         logger.info("Model saved")
         logger.info("Success.")
 
+
     except Exception as e:
         
         logger.error(f"Failed: {e}")
